@@ -28,6 +28,7 @@
 #ifndef MS_MSFEEDCOLUMNS_H
 #define MS_MSFEEDCOLUMNS_H
 
+#include "tables/Tables/RowNumbers.h"
 #include <casacore/casa/aips.h>
 #include <casacore/casa/BasicSL/Complex.h>
 #include <casacore/measures/Measures/MDirection.h>
@@ -43,6 +44,8 @@
 #include <casacore/tables/Tables/ArrayColumn.h>
 #include <casacore/tables/Tables/ScalarColumn.h>
 #include <casacore/casa/BasicSL/String.h>
+
+#include <unordered_set>
 
 namespace casacore { //# NAMESPACE CASACORE - BEGIN
 
@@ -188,9 +191,11 @@ public:
   // new time information.
   // If no change to time is necessary, newTimeQ and newIntervalQ are zero.
   // Returns -1 if no match could be found.
-  // Ignore the Feed table rows contained in vector ignoreRows. 
+  // Ignore the Feed table rows contained in set ignoreRows.
   // focusLengthQ is only compared if this optional column is present and
   // if the value of focusLengthQ is not dimensionless.
+  // This overload should be preferred over the one taking a Vector<rownr_t> for
+  // ignoreRows for performance reasons.
   Int64 matchFeed(Quantum<Double>& newTimeQ,
                   Quantum<Double>& newIntervalQ,
                   Int antId,
@@ -204,11 +209,36 @@ public:
                   const Array<Complex>& polResp,
                   const Array<Quantum<Double> >& positionQ,
                   const Array<Quantum<Double> >& receptorAngleQ,
-                  const RowNumbers& ignoreRows,
+                  const std::unordered_set<rownr_t>& ignoreRows,
                   const Quantum<Double>& focusLengthQ=Quantum<Double>() 
                   );
 
-protected:
+  // Returns the last row that contains a feed with the specified values.
+  // If no matching row can be found, but a match is possible if the validity
+  // time interval is widened, return that row and the suggestion for the
+  // new time information.
+  // If no change to time is necessary, newTimeQ and newIntervalQ are zero.
+  // Returns -1 if no match could be found.
+  // Ignore the Feed table rows contained in vector ignoreRows.
+  // focusLengthQ is only compared if this optional column is present and
+  // if the value of focusLengthQ is not dimensionless.
+  Int64 matchFeed(Quantum<Double>& newTimeQ,
+                  Quantum<Double>& newIntervalQ,
+                  Int antId,
+                  Int feedId,
+                  Int spwId,
+                  const Quantum<Double>& timeQ,
+                  const Quantum<Double>& intervalQ,
+                  Int numReceptor,
+                  const Array<Quantum<Double>>& beamOffsetQ,
+                  const Array<String>& polType,
+                  const Array<Complex>& polResp,
+                  const Array<Quantum<Double>>& positionQ,
+                  const Array<Quantum<Double>>& receptorAngleQ,
+                  const RowNumbers& ignoreRows,
+                  const Quantum<Double>& focusLengthQ = Quantum<Double>());
+
+  protected:
   //# default constructor creates a object that is not usable. Use the attach
   //# function correct this.
   MSFeedColumns();
