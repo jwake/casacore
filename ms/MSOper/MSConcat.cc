@@ -65,6 +65,7 @@
 #include <casacore/casa/OS/Path.h>
 #include <casacore/casa/OS/Directory.h>
 #include <algorithm>
+#include <unordered_set>
 
 namespace casacore {
 
@@ -2528,13 +2529,15 @@ Block<uInt> MSConcat::copyAntennaAndFeed(const MSAntenna& otherAnt,
        << "Output FEED table will not have a FOCUS_LENGTH column." << LogIO::POST;
   }
 
+  std::unordered_set<rownr_t> ignoreRows;
+  ignoreRows.reserve(feedCols.nrow());
   for (uInt a = 0; a < nAntIds; a++) {
     const Int newAntId = antCols.matchAntennaAndStation(otherAntCols.name()(a),
 							otherAntCols.station()(a),
 							otherAntCols.positionMeas()(a), tol);
 
     Bool addNewEntry = True;
-
+    ignoreRowSet.clear();
     if (newAntId >= 0) {
 
       // Check that the FEED table contains all the entries for
@@ -2545,8 +2548,7 @@ Block<uInt> MSConcat::copyAntennaAndFeed(const MSAntenna& otherAnt,
       const Vector<rownr_t> feedsToCompare = feedIndex.getRowNumbers();
       const Vector<rownr_t> itsFeedsToCompare = itsFeedIndex.getRowNumbers();
       const uInt nFeedsToCompare = feedsToCompare.nelements();
-      uInt matchingFeeds = 0;
-      RowNumbers ignoreRows;
+      uInt matchingFeeds = 0;      
       Unit s("s");
       Unit m("m");
 
@@ -2596,9 +2598,8 @@ Block<uInt> MSConcat::copyAntennaAndFeed(const MSAntenna& otherAnt,
 	      feedCols.timeQuant().put(matchingFeedRow, newTimeQ);
 	      feedCols.intervalQuant().put(matchingFeedRow, newIntervalQ);
 	    }
-	    matchingFeeds++;
-	    ignoreRows.resize(matchingFeeds, True);
-	    ignoreRows(matchingFeeds-1) = matchingFeedRow;
+        matchingFeeds++;
+        ignoreRows.insert(matchingFeedRow);	    
 	  }
 	}
       }
@@ -2615,12 +2616,8 @@ Block<uInt> MSConcat::copyAntennaAndFeed(const MSAntenna& otherAnt,
 	uInt rCount = 0;
 	for (uInt f = 0; f < nFeedsToCopy; f++) {
 	  Bool present=False;
-	  for(uInt g=0; g<matchingFeeds; g++){
-	    if(feedsToCopy(f)==ignoreRows(g)){
-	      present=True;
-	      break;
-	    }
-	  }
+    present = ignoreRows.find(feedsToCopy(f)) != ignoreRows.end();
+	  
 	  if(!present){
 	    feed.addRow(1);
 	    feedRecord = otherFeedRow.get(feedsToCopy(f));
